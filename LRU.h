@@ -45,39 +45,24 @@ public:
     }
     ~LruCache(){}
     // 我们对于Lru是先去根据key找，key在hash表找不到，则需要根据key去其他地方找
-    void LruPolicy(Key &key)
+    void LruPolicy(Key &key, Value &value)
     {
         if (hasKey(key))
         {
             // 将该节点从链表中取出，放到末尾
             nodeMap_[key]->prev_->next_ = nodeMap_[key]->next_;
             nodeMap_[key]->next_->prev_ = nodeMap_[key]->prev_;
+            nodeMap_[key]->value_ = value;
             InsertNode(nodeMap_[key]);
             nodeCount_--;
         }
         else
         {
-            // 从外部读取到
-            Value value = getIOValue(key);
             if (isFull())
                 removeLeft();
             NodePtr temNode(new LruNodeType(key, value));
             InsertNode(temNode);
         }
-        cout << "Now the cache have " << nodeCount_ << " nodes: ";
-        NodePtr tem = L_; // 从头节点开始
-        while (tem != nullptr) {       // 遍历到链表末尾
-            std::cout << tem->key_ << " "; // 打印当前节点的值
-            tem = tem->next_;          // 移动到下一个节点
-        }
-        cout << endl;
-    }
-    Value getIOValue(Key &key)
-    {
-        Value tem;
-        cout << "enter the value" << endl;
-        std::cin >> tem;
-        return tem;
     }
 
     // 将节点放到末尾
@@ -99,6 +84,14 @@ public:
         L_->next_->prev_ = L_;
         nodeCount_--;
     }
+    void remove(Key &key)
+    { // 删除指定key的节点
+        auto it = nodeMap_.find(key);
+        nodeMap_[key]->prev_->next_ = nodeMap_[key]->next_;
+        nodeMap_[key]->next_->prev_ = nodeMap_[key]->prev_;
+        nodeMap_.erase(key);
+        nodeCount_--;
+    }
     // 寻找key // 找不到则返回false
     bool hasKey(Key &key)
     {
@@ -110,6 +103,25 @@ public:
             return false;
     }
     bool isFull() const {return nodeCount_ >= capacity_;}// 判断是不是满的
+    Value get(Key &key) // 通过key获取value
+    {
+        Value value{};
+        auto it = nodeMap_.find(key);
+        if (it != nodeMap_.end())
+        {
+            value = it->second->value_;
+        }
+        return value;
+    }
+    void print()
+    {
+        NodePtr tem = L_; // 从头节点开始
+        while (tem != nullptr) {       // 遍历到链表末尾
+            std::cout << tem->key_ << ":" << tem->value_ << ", ";
+            tem = tem->next_;          // 移动到下一个节点
+        }
+        cout << endl;
+    }
 private:
     NodePtr L_;
     NodePtr R_;
