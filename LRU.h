@@ -2,15 +2,17 @@
 #define LRU_H_
 #include <unordered_map>
 #include <iostream>
+#include <memory>
 using namespace std;
+template <class Key, class Value> class LruCache;
 template<class Key, class Value>
 class LruNode
 {
-public:
+private:
     Key key_;
     Value value_;
-    LruNode *prev_;
-    LruNode *next_;
+    shared_ptr<LruNode<Key, Value>> prev_;
+    shared_ptr<LruNode<Key, Value>> next_;
 public:
     LruNode(): prev_(nullptr), next_(nullptr){}
     LruNode(Key key, Value value)
@@ -21,6 +23,7 @@ public:
     Key getKey() const {return key_;}
     Value getValue() const {return value_;}
     // void setValue(const Value& value) {value_ = value;}
+    friend class LruCache<Key, Value>;
 };
 
 
@@ -28,29 +31,19 @@ template<class Key, class Value>
 class LruCache
 {
 public:
-    LruNode<Key, Value> *L_;
-    LruNode<Key, Value> *R_;
-    int capacity_;
-    int nodeCount_;
-    std::unordered_map<Key, LruNode<Key, Value>*> nodeMap_;
-public:
+    using LruNodeType = LruNode<Key, Value>;
+    using NodePtr = shared_ptr<LruNode<Key, Value>>;
+    using NodeMap = unordered_map<Key, NodePtr>;
     LruCache(int capacity)
     {
-        L_ = new LruNode<Key, Value>();
-        R_ = new LruNode<Key, Value>();
+        L_ = make_shared<LruNodeType>();
+        R_ = make_shared<LruNodeType>();
         L_->next_ = R_;
         R_->prev_ = L_;
         capacity_ = capacity;
         nodeCount_ = 0;
     }
-    ~LruCache()
-    {
-        while (L_) {
-            LruNode<Key, Value>* temp = L_;
-            L_ = L_->next_;
-            delete temp;
-        }
-    }
+    ~LruCache(){}
     // 我们对于Lru是先去根据key找，key在hash表找不到，则需要根据key去其他地方找
     void LruPolicy(Key &key)
     {
@@ -68,11 +61,11 @@ public:
             Value value = getIOValue(key);
             if (isFull())
                 removeLeft();
-            LruNode<Key, Value>* temNode = new LruNode<Key, Value>(key, value);
+            NodePtr temNode(new LruNodeType(key, value));
             InsertNode(temNode);
         }
         cout << "Now the cache have " << nodeCount_ << " nodes: ";
-        LruNode<Key, Value>* tem = L_; // 从头节点开始
+        NodePtr tem = L_; // 从头节点开始
         while (tem != nullptr) {       // 遍历到链表末尾
             std::cout << tem->key_ << " "; // 打印当前节点的值
             tem = tem->next_;          // 移动到下一个节点
@@ -88,7 +81,7 @@ public:
     }
 
     // 将节点放到末尾
-    void InsertNode(LruNode<Key, Value>* temNode)
+    void InsertNode(NodePtr temNode)
     {
         // 插入到最后一个节点
         R_->prev_->next_ = temNode;
@@ -103,7 +96,6 @@ public:
     {
         nodeMap_.erase(L_->next_->key_);
         L_->next_ = L_->next_->next_;
-        delete L_->next_->prev_;
         L_->next_->prev_ = L_;
         nodeCount_--;
     }
@@ -118,5 +110,11 @@ public:
             return false;
     }
     bool isFull() const {return nodeCount_ >= capacity_;}// 判断是不是满的
+private:
+    NodePtr L_;
+    NodePtr R_;
+    int capacity_;
+    int nodeCount_;
+    NodeMap nodeMap_;
 };
 #endif
