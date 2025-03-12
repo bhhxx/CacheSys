@@ -138,10 +138,10 @@ private:
     void kickOut(); // 移除缓存中过期数据
     void removeFromFreqList(NodePtr node);// 从频率列表中移除节点
     void addToFreqList(NodePtr node); // 添加到频率列表
-    // void addFreqNum(); // 增加平均访问频率
-    // void decreaseFreqNum(int num); // 减少平均访问频率
-    // void handleOverMaxAverageNum(); // 处理当前平均访问频率超过上限的情况
-    // void updateMinFreq();
+    void addFreqNum(); // 增加平均访问频率
+    void decreaseFreqNum(int num); // 减少平均访问频率
+    void handleOverMaxAverageNum(); // 处理当前平均访问频率超过上限的情况
+    void updateMinFreq();
 };
 template <typename Key, typename Value>
 LFUCache<Key, Value>::~LFUCache() 
@@ -165,7 +165,7 @@ void LFUCache<Key, Value>::getInternal(NodePtr node, Value &value)
     {
         minFreq_++;
     } // 更新最小频率
-    // addFreqNum();
+    addFreqNum();
 }
 
 template <class Key, class Value>
@@ -178,7 +178,7 @@ void LFUCache<Key, Value>::putInternal(Key key, Value &value)
     NodePtr node = std::make_shared<Node>(key, value);
     NodeMap_[key] = node;
     addToFreqList(node);
-    // addFreqNum();
+    addFreqNum();
     minFreq_ = 1;
 }
 
@@ -188,7 +188,7 @@ void LFUCache<Key, Value>::kickOut()
     NodePtr node = freqToFreqList_[minFreq_]->getFirstNode();
     removeFromFreqList(node);
     NodeMap_.erase(node->key);
-    // decreaseFreqNum(node->freq);
+    decreaseFreqNum(node->freq);
 }
 
 template <class Key, class Value>
@@ -213,57 +213,62 @@ void LFUCache<Key, Value>::addToFreqList(NodePtr node)
     freqToFreqList_[freq]->addNode(node);
 }
 
-// template <class Key, class Value>
-// void LFUCache<Key, Value>::addFreqNum()
-// {
-//     curTotalNum_++;
-//     curAverageNum_ = curTotalNum_ / NodeMap_.size();
-//     if (curAverageNum_ > maxAverageNum_)
-//     {
-//         handleOverMaxAverageNum();
-//     }
-// }
+template <class Key, class Value>
+void LFUCache<Key, Value>::addFreqNum()
+{
+    curTotalNum_++;
+    curAverageNum_ = curTotalNum_ / NodeMap_.size();
+    if (curAverageNum_ > maxAverageNum_)
+    {
+        handleOverMaxAverageNum();
+    }
+}
 
-// template <class Key, class Value>
-// void LFUCache<Key, Value>::decreaseFreqNum(int num)
-// {
-//     curTotalNum_ -= num;
-//     curAverageNum_ = curTotalNum_ / NodeMap_.size();
-// }
+template <class Key, class Value>
+void LFUCache<Key, Value>::decreaseFreqNum(int num)
+{
+    curTotalNum_ -= num;
+    curAverageNum_ = curTotalNum_ / NodeMap_.size();
+}
 
-// template <class Key, class Value>
-// void LFUCache<Key, Value>::handleOverMaxAverageNum()
-// {
-//     for (auto it = NodeMap_.begin(); it != NodeMap_.end(); ++it)
-//     {
-//         if (!it->second)
-//             continue;
+template <class Key, class Value>
+void LFUCache<Key, Value>::handleOverMaxAverageNum()
+{   // 处理超过限定平均值的情况
+    for (auto it = NodeMap_.begin(); it != NodeMap_.end(); ++it)
+    {
+        if (!it->second)
+            continue;
+        // 将存在的节点的频率减半 然后放到减半的频率链表中
+        NodePtr node = it->second;
+        removeFromFreqList(node);
+        node->freq -= maxAverageNum_ / 2;
+        if (node->freq < 1)
+        {
+            node->freq = 1;
+        }
+        addToFreqList(node);
+    }
+    // 更新最小频率
+    updateMinFreq();
+}
 
-//         NodePtr node = it->second;
-//         removeFromFreqList(node);
-//         node->freq -= maxAverageNum_ / 2;
-//         if (node->freq < 1)
-//         {
-//             node->freq = 1;
-//         }
-//         addToFreqList(node);
-//     }
-//     updateMinFreq();
-// }
-
-// template<typename Key, typename Value>
-// void LFUCache<Key, Value>::updateMinFreq() 
-// {
-//     minFreq_ = INT8_MAX;
-//     for (const auto& pair : freqToFreqList_) 
-//     {
-//         if (pair.second && !pair.second->isEmpty()) 
-//         {
-//             minFreq_ = std::min(minFreq_, pair.first);
-//         }
-//     }
-//     if (minFreq_ == INT8_MAX) 
-//         minFreq_ = 1;
-// }
+template<typename Key, typename Value>
+void LFUCache<Key, Value>::updateMinFreq() 
+{
+    minFreq_ = INT8_MAX;
+    curTotalNum_ = 0;
+    curAverageNum_ = 0;
+    for (const auto& pair : freqToFreqList_) 
+    {
+        if (pair.second && !pair.second->isEmpty()) 
+        {
+            minFreq_ = std::min(minFreq_, pair.first);
+            curTotalNum_ += pair.first;
+        }
+    }
+    curAverageNum_ = curTotalNum_ / NodeMap_.size();
+    if (minFreq_ == INT8_MAX) 
+        minFreq_ = 1;
+}
 
 #endif /* LFU_H_ */
