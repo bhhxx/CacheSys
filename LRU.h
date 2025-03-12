@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <iostream>
 #include <memory>
+#include <mutex>
 using namespace std;
 template <class Key, class Value> class LruCache;
 template<class Key, class Value>
@@ -47,6 +48,7 @@ public:
     // 我们对于Lru是先去根据key找，key在hash表找不到，则需要根据key去其他地方找
     void LruPolicy(Key &key, Value &value)
     {
+        lock_guard<mutex> lock(mutex_);
         if (hasKey(key))
         {
             // 将该节点从链表中取出，放到末尾
@@ -86,6 +88,7 @@ public:
     }
     void remove(Key &key)
     { // 删除指定key的节点
+        std::lock_guard<std::mutex> lock(mutex_);
         auto it = nodeMap_.find(key);
         nodeMap_[key]->prev_->next_ = nodeMap_[key]->next_;
         nodeMap_[key]->next_->prev_ = nodeMap_[key]->prev_;
@@ -128,5 +131,6 @@ private:
     int capacity_;
     int nodeCount_;
     NodeMap nodeMap_;
+    mutex mutex_;
 };
 #endif
